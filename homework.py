@@ -103,7 +103,7 @@ def main():
     if not check_tokens():
         raise EnviromentVarError(ENVIROMENT_VARIABLE_ERROR)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = 1666535727
+    current_timestamp = int(time.time())
     previous_error = ''
     while True:
         try:
