@@ -6,7 +6,7 @@ import requests
 import logging
 import sys
 from logging import StreamHandler
-from exceptions import APIStatusNotOk, TokenOrDateError, EnviromentVarError
+from exceptions import APIStatusNotOk, TokenOrDateError
 from http import HTTPStatus
 
 load_dotenv()
@@ -27,7 +27,7 @@ ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
 
-HOMEWORK_STATUSES = {
+HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
     'reviewing': 'Работа взята на проверку ревьюером.',
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
@@ -37,73 +37,93 @@ API_STATUS_NOT_OK = 'API enpoint status not OK.'
 TOKEN_OR_DATE_ERROR = 'Token or date problem.'
 HOMEWORK_STATUS_ERROR = 'Unexpected homework status.'
 ENVIROMENT_VARIABLE_ERROR = 'Enviroment variable missing.'
+UNEXPECTED_TYPE_IN_RESPONSE = 'unexpected type in response'
+NO_HOMEWORKS_IN_RESPONSE = 'No homeworks in response'
+NO_HOMEWORK_NAME_IN_HOMEWORK = 'No homework_name in homeworks'
+NO_STATUS_IN_HOMEWORK = 'No status in homework'
+UNEXPEXTED_VALYE_TYPE_IN_HOMEWORKS = 'unexpected value type in homeworks'
 
 
 def send_message(bot, message):
     """Отправка ботом сообщения в Телеграмм."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
-    except Exception as error:
-        logging.error(f'Message not sent {error}.')
-    logging.info(f'Message {message} succesfuly sent.')
+        logging.info(f'Message {message} succesfuly sent.')
+    except telegram.error.TelegramError(message):
+        logging.error(f'Message not sent {message}.')
 
 
 def get_api_answer(current_timestamp):
     """Получение ответа от эндпоинта API."""
     timestamp = current_timestamp or int(time.time())
     params = {'from_date': timestamp}
-    url = ENDPOINT
+    headers = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
+    url = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
+    request_params = {
+        'url': url,
+        'headers': headers,
+        'params': params,
+    }
     try:
-        response = requests.get(url, headers=HEADERS, params=params)
+        response = requests.get(**request_params)
         response_status = response.status_code
         if response_status != HTTPStatus.OK:
             logging.error(API_STATUS_NOT_OK)
             raise APIStatusNotOk(API_STATUS_NOT_OK)
     except requests.RequestException as error:
-        logging.error(f'Endpoint {ENDPOINT} trouble, {error}.')
+        logging.error(f'Endpoint {url} trouble, {error}.')
     return response.json()
 
 
 def check_response(response):
     """Проверка содержимого ответа API."""
-    if 'code' not in response:
-        if type(response['homeworks']) == list:
-            try:
-                response = response['homeworks']
-                return response
-            except Exception as error:
-                logging.error(f'Incorrect key in API answer {error}.')
-        raise TypeError
-    logging.critical(TOKEN_OR_DATE_ERROR)
-    raise TokenOrDateError(TOKEN_OR_DATE_ERROR)
+    if 'code' in response:
+        logging.critical(TOKEN_OR_DATE_ERROR)
+        raise TokenOrDateError(TOKEN_OR_DATE_ERROR)
+    if not isinstance(response, dict):
+        logging.error(UNEXPECTED_TYPE_IN_RESPONSE)
+        raise TypeError(UNEXPECTED_TYPE_IN_RESPONSE)
+    if not isinstance(response['homeworks'], list):
+        logging.error(UNEXPEXTED_VALYE_TYPE_IN_HOMEWORKS)
+        raise TypeError(UNEXPEXTED_VALYE_TYPE_IN_HOMEWORKS)
+    if response['homeworks']:
+        response = response['homeworks']
+        return response
+    logging.error(NO_HOMEWORKS_IN_RESPONSE)
+    raise KeyError(NO_HOMEWORKS_IN_RESPONSE)
 
 
 def parse_status(homework):
     """Проверка статуса сданной работы."""
+    if not homework['homework_name']:
+        logging.error(NO_HOMEWORKS_IN_RESPONSE)
+        raise KeyError(NO_HOMEWORKS_IN_RESPONSE)
     homework_name = homework['homework_name']
+    if not homework['status']:
+        logging.error(NO_STATUS_IN_HOMEWORK)
+        raise KeyError(NO_STATUS_IN_HOMEWORK)
     homework_status = homework['status']
-    if homework_status not in HOMEWORK_STATUSES:
+    if homework_status not in HOMEWORK_VERDICTS:
         logging.error(HOMEWORK_STATUS_ERROR)
         raise KeyError(HOMEWORK_STATUS_ERROR)
-    verdict = HOMEWORK_STATUSES[homework_status]
+    verdict = HOMEWORK_VERDICTS[homework_status]
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def check_tokens():
     """Проверка переменных аутентификации."""
-    for key in (TELEGRAM_CHAT_ID, TELEGRAM_TOKEN, PRACTICUM_TOKEN):
-        if key is None or not key:
-            logging.critical(ENVIROMENT_VARIABLE_ERROR)
-            return False
-    return True
+    if all([TELEGRAM_CHAT_ID, TELEGRAM_TOKEN, PRACTICUM_TOKEN]):
+        return True
+    logging.critical(ENVIROMENT_VARIABLE_ERROR)
+    return False
 
 
 def main():
     """Основная логика работы бота."""
     if not check_tokens():
-        raise EnviromentVarError(ENVIROMENT_VARIABLE_ERROR)
+        sys.exit(ENVIROMENT_VARIABLE_ERROR)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = int(time.time())
+    current_timestamp = 1666535727
     previous_error = ''
     while True:
         try:
