@@ -23,8 +23,6 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 
 RETRY_TIME = 10
-ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
-HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
 
 HOMEWORK_VERDICTS = {
@@ -46,23 +44,21 @@ UNEXPEXTED_VALYE_TYPE_IN_HOMEWORKS = 'unexpected value type in homeworks'
 
 def send_message(bot, message):
     """Отправка ботом сообщения в Телеграмм."""
+    logging.info(f'Try send message {message}.')
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
-        logging.info(f'Message {message} succesfuly sent.')
-    except telegram.error.TelegramError(message):
+        logging.info('Message succesfuly sent.')
+    except telegram.error.TelegramError:
         logging.error(f'Message not sent {message}.')
 
 
 def get_api_answer(current_timestamp):
     """Получение ответа от эндпоинта API."""
     timestamp = current_timestamp or int(time.time())
-    params = {'from_date': timestamp}
-    headers = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
-    url = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
     request_params = {
-        'url': url,
-        'headers': headers,
-        'params': params,
+        'url': 'https://practicum.yandex.ru/api/user_api/homework_statuses/',
+        'headers': {'Authorization': f'OAuth {PRACTICUM_TOKEN}'},
+        'params': {'from_date': timestamp},
     }
     try:
         response = requests.get(**request_params)
@@ -71,7 +67,7 @@ def get_api_answer(current_timestamp):
             logging.error(API_STATUS_NOT_OK)
             raise APIStatusNotOk(API_STATUS_NOT_OK)
     except requests.RequestException as error:
-        logging.error(f'Endpoint {url} trouble, {error}.')
+        logging.error(f'Endpoint trouble, {error}.')
     return response.json()
 
 
@@ -83,19 +79,19 @@ def check_response(response):
     if not isinstance(response, dict):
         logging.error(UNEXPECTED_TYPE_IN_RESPONSE)
         raise TypeError(UNEXPECTED_TYPE_IN_RESPONSE)
+    if 'homeworks' not in response:
+        logging.error(NO_HOMEWORKS_IN_RESPONSE)
+        raise KeyError(NO_HOMEWORKS_IN_RESPONSE)
     if not isinstance(response['homeworks'], list):
         logging.error(UNEXPEXTED_VALYE_TYPE_IN_HOMEWORKS)
         raise TypeError(UNEXPEXTED_VALYE_TYPE_IN_HOMEWORKS)
-    if response['homeworks']:
-        response = response['homeworks']
-        return response
-    logging.error(NO_HOMEWORKS_IN_RESPONSE)
-    raise KeyError(NO_HOMEWORKS_IN_RESPONSE)
+    response = response['homeworks']
+    return response
 
 
 def parse_status(homework):
     """Проверка статуса сданной работы."""
-    if not homework['homework_name']:
+    if 'homework_name' not in homework:
         logging.error(NO_HOMEWORKS_IN_RESPONSE)
         raise KeyError(NO_HOMEWORKS_IN_RESPONSE)
     homework_name = homework['homework_name']
@@ -123,7 +119,7 @@ def main():
     if not check_tokens():
         sys.exit(ENVIROMENT_VARIABLE_ERROR)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = 1666535727
+    current_timestamp = int(time.time())
     previous_error = ''
     while True:
         try:
