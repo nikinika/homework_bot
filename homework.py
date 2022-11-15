@@ -22,7 +22,7 @@ TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 
-RETRY_TIME = 10
+RETRY_TIME = 600
 
 
 HOMEWORK_VERDICTS = {
@@ -95,7 +95,7 @@ def parse_status(homework):
         logging.error(NO_HOMEWORKS_IN_RESPONSE)
         raise KeyError(NO_HOMEWORKS_IN_RESPONSE)
     homework_name = homework['homework_name']
-    if not homework['status']:
+    if 'status' not in homework:
         logging.error(NO_STATUS_IN_HOMEWORK)
         raise KeyError(NO_STATUS_IN_HOMEWORK)
     homework_status = homework['status']
