@@ -54,11 +54,10 @@ def send_message(bot, message):
 
 def get_api_answer(current_timestamp):
     """Получение ответа от эндпоинта API."""
-    timestamp = current_timestamp or int(time.time())
     request_params = {
         'url': 'https://practicum.yandex.ru/api/user_api/homework_statuses/',
         'headers': {'Authorization': f'OAuth {PRACTICUM_TOKEN}'},
-        'params': {'from_date': timestamp},
+        'params': {'from_date': current_timestamp},
     }
     try:
         response = requests.get(**request_params)
