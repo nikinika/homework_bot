@@ -9,17 +9,15 @@ from logging import StreamHandler
 from exceptions import APIStatusNotOk, TokenOrDateError
 from http import HTTPStatus
 
-load_dotenv()
-
 logging.basicConfig(level=logging.DEBUG,
                     filename='bot_logging.log',
                     format='%(asctime)s, %(levelname)s, %(message)s',
                     filemode='w')
 
 
-PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+PRACTICUM_TOKEN = os.environ.get('PRACTICUM_TOKEN')
+TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
+TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
 
 
 RETRY_TIME = 600
